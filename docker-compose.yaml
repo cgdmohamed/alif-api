@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${DB_USERNAME:-alef}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD to a real password before deploying}
+      - POSTGRES_DB=${DB_DATABASE:-alef_dev}
+    volumes:
+      - alef_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-alef} -d ${DB_DATABASE:-alef_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # No `ports:` mapping — Postgres is only reachable from the `api`
+    # service over the compose network's Docker DNS (host `postgres`),
+    # never exposed to the host or the public internet.
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME:-alef}
+      - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD to a real password before deploying}
+      - DB_DATABASE=${DB_DATABASE:-alef_dev}
+      # See README's Production notes — stays true until real migrations exist.
+      - DB_SYNCHRONIZE=${DB_SYNCHRONIZE:-true}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?Set a long random secret — e.g. openssl rand -hex 32}
+      - JWT_ACCESS_EXPIRES_IN=${JWT_ACCESS_EXPIRES_IN:-15m}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?Set a long random secret, different from JWT_ACCESS_SECRET}
+      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-30d}
+      # Comma-separated allowlist of origins allowed to call this API with
+      # credentials — e.g. the admin panel's public URL. Left unset, CORS
+      # is closed entirely in production (see main.ts).
+      - CORS_ORIGIN=${CORS_ORIGIN:?Set to the admin panel origin(s), e.g. https://portal.aliffuture.com}
+      # Zoom Video SDK — leave both unset to fall back to MockZoomProvider.
+      - ZOOM_SDK_KEY=${ZOOM_SDK_KEY:-}
+      - ZOOM_SDK_SECRET=${ZOOM_SDK_SECRET:-}
+      - SERVICE_FQDN_API=${SERVICE_FQDN_API}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    # No `ports:` mapping — assign the domain in Coolify's Domains UI (not
+    # just as an env var) so it generates the Traefik routing rule; the
+    # container listens on 3000 internally either way.
+
+volumes:
+  alef_pg_data:

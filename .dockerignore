@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+.env.local
+test
+*.spec.ts
+npm-debug.log*
+.DS_Store
