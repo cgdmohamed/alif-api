@@ -23,4 +23,7 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD wget -qO- http://127.0.0.1:3000/health >/dev/null 2>&1 || exit 1
 
-CMD ["node", "dist/main"]
+# Migrations are idempotent (TypeORM tracks applied ones in the "migrations"
+# table) — safe to run on every boot rather than needing a separate
+# one-off migration container/step.
+CMD ["sh", "-c", "npm run migration:run:prod && node dist/main"]

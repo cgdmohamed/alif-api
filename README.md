@@ -23,13 +23,19 @@ NestJS + TypeORM + PostgreSQL backend for the Alef Future admin panel and mobile
    npm install
    ```
 
-4. **Run the API**:
+4. **Run migrations**:
+   ```bash
+   npm run migration:run
+   ```
+   Real migrations live in `src/database/migrations` — `DB_SYNCHRONIZE` defaults to `false` (see Production notes below), so this is how the schema actually gets created. Whenever you change an entity, regenerate one: `npm run migration:generate -- src/database/migrations/DescriptiveName`, then re-run this command. (For quick throwaway prototyping only, you can set `DB_SYNCHRONIZE=true` in `.env` instead — never against a database with real data.)
+
+5. **Run the API**:
    ```bash
    npm run start:dev
    ```
-   Schema auto-syncs from entities in development (`synchronize: true` in `src/config/typeorm.config.ts`) — no migration step needed for local dev. Swagger docs at `http://localhost:3000/docs`.
+   Swagger docs at `http://localhost:3000/docs`.
 
-5. **Seed one user per role** (admin/school-admin/teacher/support all use password `Passw0rd!`; student/parent log in via OTP — the dev `ConsoleOtpSender` logs the code to the server console instead of sending a real SMS):
+6. **Seed one user per role** (admin/school-admin/teacher/support all use password `Passw0rd!`; student/parent log in via OTP — the dev `ConsoleOtpSender` logs the code to the server console instead of sending a real SMS):
    ```bash
    npm run seed
    ```
@@ -46,6 +52,6 @@ The login response includes `accessToken` — pass it as `Authorization: Bearer 
 
 ## Production notes
 
-- **No migrations exist yet** — schema is created entirely by TypeORM's `synchronize`, which stays on by default in every environment (`DB_SYNCHRONIZE` env var, default `true`) specifically so this doesn't silently break in production. Once real migrations are generated (`npm run migration:generate` / `migration:run`), set `DB_SYNCHRONIZE=false` and switch to running migrations on deploy instead — `synchronize` can drop/alter columns based on entity changes and is not safe to run against a database with real data long-term.
+- **Migrations run automatically on boot** — the Dockerfile's `CMD` runs `npm run migration:run:prod` (plain `typeorm` CLI against the compiled `dist/config/typeorm.datasource.js` — no `ts-node`, which is dev-only) before starting the server. They're idempotent (TypeORM tracks applied ones in the `migrations` table), so this is safe on every restart, not just the first deploy. `DB_SYNCHRONIZE` defaults to `false` everywhere; only flip it on for disposable local prototyping.
 - Swap the stubbed providers for real ones before going live: `AgoraProvider` (meetings module — see `AGORA_APP_ID`/`AGORA_APP_CERTIFICATE`), `StorageProvider` (content-library module), `EmailProvider`/`SmsProvider` (settings + auth modules) — each has a single provider binding in its module file.
 - Deploying with Docker/Coolify? See `docker-compose.yaml` (production) — the local-dev-only `docker-compose.yml` (Postgres alone) is unrelated to it.

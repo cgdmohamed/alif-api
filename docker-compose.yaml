@@ -33,8 +33,9 @@ services:
       - DB_USERNAME=${DB_USERNAME:-alef}
       - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD to a real password before deploying}
       - DB_DATABASE=${DB_DATABASE:-alef_dev}
-      # See README's Production notes — stays true until real migrations exist.
-      - DB_SYNCHRONIZE=${DB_SYNCHRONIZE:-true}
+      # Off by default — real migrations run automatically on boot (see
+      # Dockerfile's CMD). Only set to "true" for throwaway environments.
+      - DB_SYNCHRONIZE=${DB_SYNCHRONIZE:-false}
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?Set a long random secret — e.g. openssl rand -hex 32}
       - JWT_ACCESS_EXPIRES_IN=${JWT_ACCESS_EXPIRES_IN:-15m}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?Set a long random secret, different from JWT_ACCESS_SECRET}
