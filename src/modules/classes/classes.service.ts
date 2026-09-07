@@ -51,7 +51,7 @@ export class ClassesService {
       resourceVersionAtGeneration: resource?.versionNumber ?? null,
       teacherId: dto.teacherId ?? null,
       color: dto.color,
-      autoZoom: dto.autoZoom,
+      autoAgora: dto.autoAgora,
       status: ClassStatus.ACTIVE,
       meetings: dto.initialMeetings?.map((m) => this.meetingsRepository.create(m)),
     })

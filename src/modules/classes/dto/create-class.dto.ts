@@ -37,7 +37,7 @@ export class CreateClassDto {
 
   @ApiProperty({ default: true })
   @IsBoolean()
-  autoZoom: boolean
+  autoAgora: boolean
 
   @ApiProperty({ type: [InitialMeetingDto], required: false })
   @IsOptional()

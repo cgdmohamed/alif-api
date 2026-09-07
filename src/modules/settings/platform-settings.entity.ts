@@ -19,7 +19,7 @@ export class PlatformSettings {
   security: { minPasswordLength: number; sessionMinutes: number; twoFactorEnabled: boolean }
 
   @Column('jsonb', { default: () => "'{}'" })
-  zoom: { accountId: string | null }
+  agora: { appId: string | null }
 
   @Column('jsonb', { default: () => "'{}'" })
   smtp: { host: string | null; port: number | null; encryption: string | null }

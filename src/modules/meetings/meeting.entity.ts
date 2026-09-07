@@ -39,13 +39,12 @@ export class Meeting {
   status: MeetingStatus
 
   /**
-   * Zoom Video SDK session name (topic). Unlike the old Meetings-API model,
-   * the Video SDK has no persistent "meeting" object or static join URL —
-   * a fresh, short-lived join token is minted per user per attempt instead
-   * (see MeetingsService.join / ZoomProvider.generateJoinToken).
+   * Agora channel name. There's no persistent "meeting" object or static
+   * join URL — a fresh, short-lived join token is minted per user per
+   * attempt instead (see MeetingsService.join / AgoraProvider.generateJoinToken).
    */
   @Column({ type: 'varchar', nullable: true })
-  zoomSessionName: string | null
+  agoraChannelName: string | null
 
   @Column('uuid', { array: true, default: () => "'{}'" })
   sessionPlanBlockIds: string[]

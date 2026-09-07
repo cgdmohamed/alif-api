@@ -6,7 +6,6 @@ import { UpdateMeetingDto } from './dto/update-meeting.dto'
 import { PushActivityDto } from './dto/push-activity.dto'
 import { CompleteMeetingDto } from './dto/complete-meeting.dto'
 import { Roles } from '../../common/decorators/roles.decorator'
-import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Role } from '../../common/enums/role.enum'
 
 @ApiTags('meetings')
@@ -39,8 +38,8 @@ export class MeetingsController {
   }
 
   @Post(':id/join')
-  join(@Param('id') id: string, @CurrentUser() user: { id: string; role: Role }) {
-    return this.meetingsService.join(id, user)
+  join(@Param('id') id: string) {
+    return this.meetingsService.join(id)
   }
 
   @Roles(Role.TEACHER)

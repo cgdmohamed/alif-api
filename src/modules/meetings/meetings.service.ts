@@ -4,8 +4,7 @@ import { Between, Repository } from 'typeorm'
 import { Meeting, MeetingStatus } from './meeting.entity'
 import { ContentBlock } from '../programs/content-block.entity'
 import { Recording } from '../recordings/recording.entity'
-import { ZOOM_PROVIDER, type ZoomProvider, type ZoomRole } from './providers/zoom-provider.interface'
-import { Role } from '../../common/enums/role.enum'
+import { AGORA_PROVIDER, type AgoraProvider } from './providers/agora-provider.interface'
 import type { CreateMeetingDto } from './dto/create-meeting.dto'
 import type { UpdateMeetingDto } from './dto/update-meeting.dto'
 import type { CompleteMeetingDto } from './dto/complete-meeting.dto'
@@ -28,7 +27,7 @@ export class MeetingsService {
     @InjectRepository(Meeting) private readonly meetingsRepository: Repository<Meeting>,
     @InjectRepository(ContentBlock) private readonly blocksRepository: Repository<ContentBlock>,
     @InjectRepository(Recording) private readonly recordingsRepository: Repository<Recording>,
-    @Inject(ZOOM_PROVIDER) private readonly zoomProvider: ZoomProvider,
+    @Inject(AGORA_PROVIDER) private readonly agoraProvider: AgoraProvider,
   ) {}
 
   findByScope(scope?: MeetingScope) {
@@ -55,8 +54,8 @@ export class MeetingsService {
       sessionPlanBlockIds: dto.sessionPlanBlockIds ?? [],
     })
     const saved = await this.meetingsRepository.save(meeting)
-    const zoom = await this.zoomProvider.createSession(dto.title, saved.id)
-    saved.zoomSessionName = zoom.sessionName
+    const agora = await this.agoraProvider.createSession(dto.title, saved.id)
+    saved.agoraChannelName = agora.channelName
     return this.meetingsRepository.save(saved)
   }
 
@@ -68,19 +67,18 @@ export class MeetingsService {
     return this.meetingsRepository.save(meeting)
   }
 
-  async join(id: string, user: { id: string; role: Role }) {
+  async join(id: string) {
     const meeting = await this.findOne(id)
-    if (!meeting.zoomSessionName) {
-      const zoom = await this.zoomProvider.createSession(meeting.title, meeting.id)
-      meeting.zoomSessionName = zoom.sessionName
+    if (!meeting.agoraChannelName) {
+      const agora = await this.agoraProvider.createSession(meeting.title, meeting.id)
+      meeting.agoraChannelName = agora.channelName
     }
     if (meeting.status === MeetingStatus.SCHEDULED) {
       meeting.status = MeetingStatus.LIVE
     }
     await this.meetingsRepository.save(meeting)
 
-    const zoomRole: ZoomRole = user.role === Role.TEACHER ? 'host' : 'participant'
-    return this.zoomProvider.generateJoinToken(meeting.zoomSessionName, zoomRole, user.id)
+    return this.agoraProvider.generateJoinToken(meeting.agoraChannelName)
   }
 
   async sessionPlan(id: string) {
@@ -107,8 +105,8 @@ export class MeetingsService {
     meeting.completionNote = dto.note ?? null
     await this.meetingsRepository.save(meeting)
 
-    if (meeting.zoomSessionName) {
-      const playbackUrl = await this.zoomProvider.getRecordingUrl(meeting.zoomSessionName)
+    if (meeting.agoraChannelName) {
+      const playbackUrl = await this.agoraProvider.getRecordingUrl(meeting.agoraChannelName)
       if (playbackUrl) {
         await this.recordingsRepository.save(
           this.recordingsRepository.create({

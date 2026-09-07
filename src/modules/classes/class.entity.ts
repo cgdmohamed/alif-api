@@ -64,7 +64,7 @@ export class Class {
   status: ClassStatus
 
   @Column({ default: true })
-  autoZoom: boolean
+  autoAgora: boolean
 
   @OneToMany(() => ClassMeeting, (meeting) => meeting.classEntity, { cascade: true })
   meetings: ClassMeeting[]

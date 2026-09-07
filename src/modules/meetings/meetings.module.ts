@@ -1,28 +1,27 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
-import { JwtModule } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import { Meeting } from './meeting.entity'
 import { Recording } from '../recordings/recording.entity'
 import { ContentBlock } from '../programs/content-block.entity'
 import { MeetingsService } from './meetings.service'
 import { MeetingsController } from './meetings.controller'
-import { ZOOM_PROVIDER } from './providers/zoom-provider.interface'
-import { MockZoomProvider } from './providers/mock-zoom.provider'
-import { ZoomVideoSdkProvider } from './providers/zoom-video-sdk.provider'
+import { AGORA_PROVIDER } from './providers/agora-provider.interface'
+import { MockAgoraProvider } from './providers/mock-agora.provider'
+import { AgoraRtcProvider } from './providers/agora-rtc.provider'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Meeting, Recording, ContentBlock]), JwtModule.register({})],
+  imports: [TypeOrmModule.forFeature([Meeting, Recording, ContentBlock])],
   controllers: [MeetingsController],
   providers: [
     MeetingsService,
-    ZoomVideoSdkProvider,
-    MockZoomProvider,
+    AgoraRtcProvider,
+    MockAgoraProvider,
     {
-      provide: ZOOM_PROVIDER,
-      inject: [ConfigService, ZoomVideoSdkProvider, MockZoomProvider],
-      useFactory: (config: ConfigService, real: ZoomVideoSdkProvider, mock: MockZoomProvider) =>
-        config.get('ZOOM_SDK_KEY') && config.get('ZOOM_SDK_SECRET') ? real : mock,
+      provide: AGORA_PROVIDER,
+      inject: [ConfigService, AgoraRtcProvider, MockAgoraProvider],
+      useFactory: (config: ConfigService, real: AgoraRtcProvider, mock: MockAgoraProvider) =>
+        config.get('AGORA_APP_ID') && config.get('AGORA_APP_CERTIFICATE') ? real : mock,
     },
   ],
   exports: [MeetingsService, TypeOrmModule],

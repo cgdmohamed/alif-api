@@ -43,9 +43,9 @@ services:
       # credentials — e.g. the admin panel's public URL. Left unset, CORS
       # is closed entirely in production (see main.ts).
       - CORS_ORIGIN=${CORS_ORIGIN:?Set to the admin panel origin(s), e.g. https://portal.aliffuture.com}
-      # Zoom Video SDK — leave both unset to fall back to MockZoomProvider.
-      - ZOOM_SDK_KEY=${ZOOM_SDK_KEY:-}
-      - ZOOM_SDK_SECRET=${ZOOM_SDK_SECRET:-}
+      # Agora — leave both unset to fall back to MockAgoraProvider.
+      - AGORA_APP_ID=${AGORA_APP_ID:-}
+      - AGORA_APP_CERTIFICATE=${AGORA_APP_CERTIFICATE:-}
       - SERVICE_FQDN_API=${SERVICE_FQDN_API}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]

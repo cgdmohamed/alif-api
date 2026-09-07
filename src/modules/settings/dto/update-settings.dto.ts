@@ -20,7 +20,7 @@ export class UpdateSettingsDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsObject()
-  zoom?: { accountId: string | null }
+  agora?: { appId: string | null }
 
   @ApiProperty({ required: false })
   @IsOptional()

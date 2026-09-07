@@ -47,5 +47,5 @@ The login response includes `accessToken` — pass it as `Authorization: Bearer 
 ## Production notes
 
 - **No migrations exist yet** — schema is created entirely by TypeORM's `synchronize`, which stays on by default in every environment (`DB_SYNCHRONIZE` env var, default `true`) specifically so this doesn't silently break in production. Once real migrations are generated (`npm run migration:generate` / `migration:run`), set `DB_SYNCHRONIZE=false` and switch to running migrations on deploy instead — `synchronize` can drop/alter columns based on entity changes and is not safe to run against a database with real data long-term.
-- Swap the stubbed providers for real ones before going live: `ZoomProvider` (meetings module — see `ZOOM_SDK_KEY`/`ZOOM_SDK_SECRET`), `StorageProvider` (content-library module), `EmailProvider`/`SmsProvider` (settings + auth modules) — each has a single provider binding in its module file.
+- Swap the stubbed providers for real ones before going live: `AgoraProvider` (meetings module — see `AGORA_APP_ID`/`AGORA_APP_CERTIFICATE`), `StorageProvider` (content-library module), `EmailProvider`/`SmsProvider` (settings + auth modules) — each has a single provider binding in its module file.
 - Deploying with Docker/Coolify? See `docker-compose.yaml` (production) — the local-dev-only `docker-compose.yml` (Postgres alone) is unrelated to it.

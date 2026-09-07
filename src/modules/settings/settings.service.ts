@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
+import { ConfigService } from '@nestjs/config'
 import { Repository } from 'typeorm'
 import { PlatformSettings } from './platform-settings.entity'
 import { PdfTemplate } from './pdf-template.entity'
@@ -15,6 +16,7 @@ export class SettingsService {
     @InjectRepository(PdfTemplate) private readonly pdfTemplatesRepository: Repository<PdfTemplate>,
     @Inject(EMAIL_PROVIDER) private readonly emailProvider: EmailProvider,
     @Inject(SMS_PROVIDER) private readonly smsProvider: SmsProvider,
+    private readonly config: ConfigService,
   ) {}
 
   async get() {
@@ -29,14 +31,21 @@ export class SettingsService {
     return this.settingsRepository.save(settings)
   }
 
-  async testConnection(target: 'zoom' | 'smtp' | 'sms') {
+  async testConnection(target: 'agora' | 'smtp' | 'sms') {
     if (target === 'smtp') {
       await this.emailProvider.send('test@alef.dev', 'Alef test email', 'This is a test message.')
     }
     if (target === 'sms') {
       await this.smsProvider.send('+966500000000', 'Alef test SMS')
     }
-    // Zoom test is a no-op ping in the mock provider — real implementation calls the Zoom API.
+    if (target === 'agora') {
+      // No connection to actually ping — Agora tokens are minted locally
+      // from these two values, not fetched from a live endpoint. Report
+      // whether the real provider is even configured instead of a
+      // hardcoded "success" (see MeetingsModule for the same check).
+      const configured = Boolean(this.config.get('AGORA_APP_ID') && this.config.get('AGORA_APP_CERTIFICATE'))
+      return { target, success: configured }
+    }
     return { target, success: true }
   }
 
