@@ -48,6 +48,13 @@ services:
       - AGORA_APP_ID=${AGORA_APP_ID:-}
       - AGORA_APP_CERTIFICATE=${AGORA_APP_CERTIFICATE:-}
       - SERVICE_FQDN_API=${SERVICE_FQDN_API}
+    volumes:
+      # LocalStorageProvider (content-library uploads) writes to
+      # /app/uploads — without this, every redeploy wipes all uploaded
+      # files. Still only a single-instance stopgap; swap for a real
+      # object store (S3-compatible) before scaling to multiple API
+      # replicas or wanting off-server backups.
+      - alef_uploads:/app/uploads
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
       interval: 30s
@@ -60,3 +67,4 @@ services:
 
 volumes:
   alef_pg_data:
+  alef_uploads:

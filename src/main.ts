@@ -1,12 +1,20 @@
 import 'reflect-metadata'
+import { join } from 'path'
 import { NestFactory } from '@nestjs/core'
+import type { NestExpressApplication } from '@nestjs/platform-express'
 import { ValidationPipe } from '@nestjs/common'
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { AppModule } from './app.module'
 import { HttpExceptionFilter } from './common/filters/http-exception.filter'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create<NestExpressApplication>(AppModule)
+
+  // LocalStorageProvider (content-library uploads) saves to ./uploads and
+  // returns "/uploads/<key>" URLs — nothing served that path over HTTP
+  // until now, so every uploaded file was unreachable regardless of the
+  // provider being real or a dev stub.
+  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' })
 
   app.useGlobalPipes(
     new ValidationPipe({
