@@ -4,9 +4,15 @@ import { Repository } from 'typeorm'
 import { Class, ClassStatus } from './class.entity'
 import { ClassMeeting } from './class-meeting.entity'
 import { Resource } from '../resources/resource.entity'
+import { MeetingsService } from '../meetings/meetings.service'
 import type { CreateClassDto } from './dto/create-class.dto'
 import type { UpdateClassDto } from './dto/update-class.dto'
 import type { AddMeetingDto } from './dto/add-meeting.dto'
+
+// AddMeetingDto/InitialMeetingDto only take a date+time, no duration — this
+// is the same default every other "schedule a live meeting" entry point in
+// the app uses (see admin's StartSessionModal/TeacherClasses "start now").
+const DEFAULT_MEETING_DURATION_MINUTES = 60
 
 @Injectable()
 export class ClassesService {
@@ -14,6 +20,7 @@ export class ClassesService {
     @InjectRepository(Class) private readonly classesRepository: Repository<Class>,
     @InjectRepository(ClassMeeting) private readonly meetingsRepository: Repository<ClassMeeting>,
     @InjectRepository(Resource) private readonly resourcesRepository: Repository<Resource>,
+    private readonly meetingsService: MeetingsService,
   ) {}
 
   findAllForSchool(schoolId: string) {
@@ -53,9 +60,12 @@ export class ClassesService {
       color: dto.color,
       autoAgora: dto.autoAgora,
       status: ClassStatus.ACTIVE,
-      meetings: dto.initialMeetings?.map((m) => this.meetingsRepository.create(m)),
     })
-    return this.classesRepository.save(classEntity)
+    const saved = await this.classesRepository.save(classEntity)
+    for (const m of dto.initialMeetings ?? []) {
+      await this.addMeeting(saved.id, m)
+    }
+    return this.findOne(saved.id)
   }
 
   async update(id: string, dto: UpdateClassDto) {
@@ -67,6 +77,17 @@ export class ClassesService {
 
   async addMeeting(classId: string, dto: AddMeetingDto) {
     await this.findOne(classId)
-    return this.meetingsRepository.save(this.meetingsRepository.create({ classId, ...dto }))
+    // Every class meeting is backed by a real, joinable Meeting (Agora
+    // channel + all the /meetings endpoints) rather than being just a
+    // date/time row — see class-meeting.entity.ts's meetingId link.
+    const meeting = await this.meetingsService.create({
+      classId,
+      title: dto.title,
+      scheduledAt: new Date(`${dto.date}T${dto.time}:00`).toISOString(),
+      durationMinutes: DEFAULT_MEETING_DURATION_MINUTES,
+    })
+    return this.meetingsRepository.save(
+      this.meetingsRepository.create({ classId, title: dto.title, date: dto.date, time: dto.time, meetingId: meeting.id }),
+    )
   }
 }
