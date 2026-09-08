@@ -11,9 +11,10 @@ import { MockAgoraProvider } from './providers/mock-agora.provider'
 import { AgoraRtcProvider } from './providers/agora-rtc.provider'
 import { Student } from '../students/student.entity'
 import { Class } from '../classes/class.entity'
+import { NotificationsModule } from '../notifications/notifications.module'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Meeting, Recording, ContentBlock, Student, Class])],
+  imports: [TypeOrmModule.forFeature([Meeting, Recording, ContentBlock, Student, Class]), NotificationsModule],
   controllers: [MeetingsController],
   providers: [
     MeetingsService,

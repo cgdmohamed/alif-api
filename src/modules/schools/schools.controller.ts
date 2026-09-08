@@ -8,6 +8,8 @@ import { Roles } from '../../common/decorators/roles.decorator'
 import { Role } from '../../common/enums/role.enum'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { assertSchoolAccess, type AuthUser } from '../../common/authz/school-access'
+import { ReviewApprovalDto } from './dto/review-approval.dto'
+import { CreateInvoiceDto } from './dto/create-invoice.dto'
 
 @ApiTags('schools')
 @ApiBearerAuth()
@@ -60,5 +62,29 @@ export class SchoolsController {
   approvals(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     assertSchoolAccess(user, id)
     return this.schoolsService.approvals(id)
+  }
+
+  @Roles(Role.PLATFORM_ADMIN, Role.SCHOOL_ADMIN)
+  @Patch(':schoolId/approvals/:approvalId')
+  reviewApproval(
+    @Param('schoolId') schoolId: string,
+    @Param('approvalId') approvalId: string,
+    @Body() dto: ReviewApprovalDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    assertSchoolAccess(user, schoolId)
+    return this.schoolsService.reviewApproval(schoolId, approvalId, dto.status, user.id)
+  }
+
+  @Roles(Role.PLATFORM_ADMIN)
+  @Post(':id/invoices')
+  createInvoice(@Param('id') id: string, @Body() dto: CreateInvoiceDto) {
+    return this.schoolsService.createInvoice(id, dto)
+  }
+
+  @Roles(Role.PLATFORM_ADMIN)
+  @Patch(':schoolId/invoices/:invoiceId/pay')
+  markInvoicePaid(@Param('schoolId') schoolId: string, @Param('invoiceId') invoiceId: string) {
+    return this.schoolsService.markInvoicePaid(schoolId, invoiceId)
   }
 }

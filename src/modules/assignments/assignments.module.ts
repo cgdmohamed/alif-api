@@ -6,9 +6,10 @@ import { Student } from '../students/student.entity'
 import { AssignmentsService } from './assignments.service'
 import { AssignmentsController } from './assignments.controller'
 import { Class } from '../classes/class.entity'
+import { NotificationsModule } from '../notifications/notifications.module'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Assignment, Submission, Student, Class])],
+  imports: [TypeOrmModule.forFeature([Assignment, Submission, Student, Class]), NotificationsModule],
   controllers: [AssignmentsController],
   providers: [AssignmentsService],
   exports: [AssignmentsService, TypeOrmModule],

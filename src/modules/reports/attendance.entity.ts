@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Unique } from 'typeorm'
 import { Student } from '../students/student.entity'
 import { Meeting } from '../meetings/meeting.entity'
 
@@ -8,6 +8,7 @@ export enum AttendanceStatus {
 }
 
 @Entity('attendance_records')
+@Unique(['studentId', 'meetingId'])
 export class AttendanceRecord {
   @PrimaryGeneratedColumn('uuid')
   id: string

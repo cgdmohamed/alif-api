@@ -6,9 +6,10 @@ import { Submission } from '../assignments/submission.entity'
 import { AttendanceRecord } from './attendance.entity'
 import { ReportsService } from './reports.service'
 import { ReportsController } from './reports.controller'
+import { Meeting } from '../meetings/meeting.entity'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Student, Class, Submission, AttendanceRecord])],
+  imports: [TypeOrmModule.forFeature([Student, Class, Submission, AttendanceRecord, Meeting])],
   controllers: [ReportsController],
   providers: [ReportsService],
   exports: [ReportsService, TypeOrmModule],

@@ -9,16 +9,22 @@ import type { UpdatePackageDto } from './dto/update-package.dto'
 @Injectable()
 export class PackagesService {
   constructor(
-    @InjectRepository(Package) private readonly packagesRepository: Repository<Package>,
-    @InjectRepository(School) private readonly schoolsRepository: Repository<School>,
+    @InjectRepository(Package)
+    private readonly packagesRepository: Repository<Package>,
+    @InjectRepository(School)
+    private readonly schoolsRepository: Repository<School>,
   ) {}
 
   async findAll() {
-    const packages = await this.packagesRepository.find({ order: { price: 'ASC' } })
+    const packages = await this.packagesRepository.find({
+      order: { price: 'ASC' },
+    })
     return Promise.all(
       packages.map(async (pkg) => ({
         ...pkg,
-        subscribedSchools: await this.schoolsRepository.count({ where: { packageId: pkg.id } }),
+        subscribedSchools: await this.schoolsRepository.count({
+          where: { packageId: pkg.id },
+        }),
       })),
     )
   }
@@ -41,13 +47,25 @@ export class PackagesService {
 
   async remove(id: string) {
     await this.findOne(id)
-    const subscribedSchools = await this.schoolsRepository.count({ where: { packageId: id } })
+    const subscribedSchools = await this.schoolsRepository.count({
+      where: { packageId: id },
+    })
     if (subscribedSchools > 0) {
-      throw new BadRequestException(
-        `لا يمكن حذف هذه الباقة — ${subscribedSchools} مدرسة مشتركة بها حاليًا`,
-      )
+      throw new BadRequestException(`لا يمكن حذف هذه الباقة — ${subscribedSchools} مدرسة مشتركة بها حاليًا`)
     }
     await this.packagesRepository.delete(id)
     return { id }
+  }
+
+  async assertCapacity(schoolId: string, resource: 'students' | 'classes', requested: number, current: number) {
+    const school = await this.schoolsRepository.findOne({
+      where: { id: schoolId },
+    })
+    if (!school) throw new NotFoundException('School not found')
+    if (!school.package) throw new BadRequestException('School must have an active package first')
+    const limit = resource === 'students' ? school.package.maxStudents : school.package.maxClasses
+    if (current + requested > limit) {
+      throw new BadRequestException(`Package limit exceeded: ${current}/${limit} ${resource}`)
+    }
   }
 }

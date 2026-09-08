@@ -54,6 +54,7 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
+      - MAX_UPLOAD_BYTES=${MAX_UPLOAD_BYTES:-26214400}
       - SERVICE_FQDN_API=${SERVICE_FQDN_API}
     volumes:
       # LocalStorageProvider (content-library uploads) writes to

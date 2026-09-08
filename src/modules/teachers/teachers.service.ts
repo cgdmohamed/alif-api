@@ -6,28 +6,52 @@ import { Class } from '../classes/class.entity'
 import { User } from '../users/user.entity'
 import type { CreateTeacherDto } from './dto/create-teacher.dto'
 import { assertSchoolAccess, type AuthUser } from '../../common/authz/school-access'
+import { Role } from '../../common/enums/role.enum'
 
 @Injectable()
 export class TeachersService {
   constructor(
-    @InjectRepository(Teacher) private readonly teachersRepository: Repository<Teacher>,
-    @InjectRepository(Class) private readonly classesRepository: Repository<Class>,
+    @InjectRepository(Teacher)
+    private readonly teachersRepository: Repository<Teacher>,
+    @InjectRepository(Class)
+    private readonly classesRepository: Repository<Class>,
     @InjectRepository(User) private readonly usersRepository: Repository<User>,
   ) {}
 
   findAllForSchool(schoolId: string) {
-    return this.teachersRepository.find({ where: { schoolId }, order: { createdAt: 'DESC' } })
+    return this.teachersRepository.find({
+      where: { schoolId },
+      order: { createdAt: 'DESC' },
+    })
   }
 
-  create(schoolId: string, dto: CreateTeacherDto) {
+  async create(schoolId: string, dto: CreateTeacherDto) {
+    const linkedUser = await this.usersRepository.findOne({
+      where: { email: dto.email, schoolId, role: Role.TEACHER },
+    })
     return this.teachersRepository.save(
-      this.teachersRepository.create({ ...dto, schoolId, source: RosterSource.MANUAL }),
+      this.teachersRepository.create({
+        ...dto,
+        schoolId,
+        userId: linkedUser?.id ?? null,
+        source: RosterSource.MANUAL,
+      }),
     )
   }
 
-  createBulk(schoolId: string, dtos: CreateTeacherDto[]) {
-    const entities = dtos.map((dto) =>
-      this.teachersRepository.create({ ...dto, schoolId, source: RosterSource.CSV }),
+  async createBulk(schoolId: string, dtos: CreateTeacherDto[]) {
+    const entities = await Promise.all(
+      dtos.map(async (dto) => {
+        const linkedUser = await this.usersRepository.findOne({
+          where: { email: dto.email, schoolId, role: Role.TEACHER },
+        })
+        return this.teachersRepository.create({
+          ...dto,
+          schoolId,
+          userId: linkedUser?.id ?? null,
+          source: RosterSource.CSV,
+        })
+      }),
     )
     return this.teachersRepository.save(entities)
   }
@@ -55,8 +79,13 @@ export class TeachersService {
    */
   async myClasses(userId: string) {
     const user = await this.usersRepository.findOne({ where: { id: userId } })
-    if (!user?.email) return []
-    const teacher = await this.teachersRepository.findOne({ where: { email: user.email } })
+    const teacher =
+      (await this.teachersRepository.findOne({ where: { userId } })) ??
+      (user?.email
+        ? await this.teachersRepository.findOne({
+            where: { email: user.email },
+          })
+        : null)
     if (!teacher) return []
     return this.classesRepository.find({
       where: { teacherId: teacher.id },
@@ -67,7 +96,9 @@ export class TeachersService {
 
   async myProfile(userId: string) {
     const user = await this.usersRepository.findOne({ where: { id: userId } })
-    if (!user?.email) return null
-    return this.teachersRepository.findOne({ where: { email: user.email } })
+    return (
+      (await this.teachersRepository.findOne({ where: { userId } })) ??
+      (user?.email ? this.teachersRepository.findOne({ where: { email: user.email } }) : null)
+    )
   }
 }

@@ -4,9 +4,11 @@ import { Student } from './student.entity'
 import { StudentsService } from './students.service'
 import { StudentsController } from './students.controller'
 import { Class } from '../classes/class.entity'
+import { PackagesModule } from '../packages/packages.module'
+import { User } from '../users/user.entity'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Student, Class])],
+  imports: [TypeOrmModule.forFeature([Student, Class, User]), PackagesModule],
   controllers: [StudentsController],
   providers: [StudentsService],
   exports: [StudentsService, TypeOrmModule],

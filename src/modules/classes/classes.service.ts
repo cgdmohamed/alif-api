@@ -9,6 +9,9 @@ import type { CreateClassDto } from './dto/create-class.dto'
 import type { UpdateClassDto } from './dto/update-class.dto'
 import type { AddMeetingDto } from './dto/add-meeting.dto'
 import { assertSchoolAccess, type AuthUser } from '../../common/authz/school-access'
+import { PackagesService } from '../packages/packages.service'
+import { Teacher } from '../teachers/teacher.entity'
+import { BadRequestException } from '@nestjs/common'
 
 // AddMeetingDto/InitialMeetingDto only take a date+time, no duration — this
 // is the same default every other "schedule a live meeting" entry point in
@@ -18,10 +21,16 @@ const DEFAULT_MEETING_DURATION_MINUTES = 60
 @Injectable()
 export class ClassesService {
   constructor(
-    @InjectRepository(Class) private readonly classesRepository: Repository<Class>,
-    @InjectRepository(ClassMeeting) private readonly meetingsRepository: Repository<ClassMeeting>,
-    @InjectRepository(Resource) private readonly resourcesRepository: Repository<Resource>,
+    @InjectRepository(Class)
+    private readonly classesRepository: Repository<Class>,
+    @InjectRepository(ClassMeeting)
+    private readonly meetingsRepository: Repository<ClassMeeting>,
+    @InjectRepository(Resource)
+    private readonly resourcesRepository: Repository<Resource>,
     private readonly meetingsService: MeetingsService,
+    private readonly packagesService: PackagesService,
+    @InjectRepository(Teacher)
+    private readonly teachersRepository: Repository<Teacher>,
   ) {}
 
   findAllForSchool(schoolId: string) {
@@ -55,8 +64,20 @@ export class ClassesService {
   }
 
   async create(schoolId: string, dto: CreateClassDto) {
+    const current = await this.classesRepository.count({ where: { schoolId } })
+    await this.packagesService.assertCapacity(schoolId, 'classes', 1, current)
+    if (
+      dto.teacherId &&
+      !(await this.teachersRepository.exists({
+        where: { id: dto.teacherId, schoolId },
+      }))
+    ) {
+      throw new BadRequestException('Teacher does not belong to this school')
+    }
     const resource = dto.resourceId
-      ? await this.resourcesRepository.findOne({ where: { id: dto.resourceId } })
+      ? await this.resourcesRepository.findOne({
+          where: { id: dto.resourceId },
+        })
       : null
     const classEntity = this.classesRepository.create({
       schoolId,
@@ -78,6 +99,14 @@ export class ClassesService {
   async update(id: string, dto: UpdateClassDto, user?: AuthUser) {
     const classEntity = await this.findOne(id)
     if (user) assertSchoolAccess(user, classEntity.schoolId)
+    if (
+      dto.teacherId &&
+      !(await this.teachersRepository.exists({
+        where: { id: dto.teacherId, schoolId: classEntity.schoolId },
+      }))
+    ) {
+      throw new BadRequestException('Teacher does not belong to this school')
+    }
     const { initialMeetings, ...rest } = dto
     Object.assign(classEntity, rest)
     return this.classesRepository.save(classEntity)
@@ -96,7 +125,13 @@ export class ClassesService {
       durationMinutes: DEFAULT_MEETING_DURATION_MINUTES,
     })
     return this.meetingsRepository.save(
-      this.meetingsRepository.create({ classId, title: dto.title, date: dto.date, time: dto.time, meetingId: meeting.id }),
+      this.meetingsRepository.create({
+        classId,
+        title: dto.title,
+        date: dto.date,
+        time: dto.time,
+        meetingId: meeting.id,
+      }),
     )
   }
 }

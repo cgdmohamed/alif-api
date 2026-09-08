@@ -1,10 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  UnauthorizedException,
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common'
+import { Inject, Injectable, UnauthorizedException, BadRequestException, ConflictException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { LessThan, MoreThan, Repository } from 'typeorm'
 import { JwtService } from '@nestjs/jwt'
@@ -34,9 +28,11 @@ const LOGIN_LOCKOUT_MINUTES = 15
 export class AuthService {
   constructor(
     @InjectRepository(User) private readonly usersRepository: Repository<User>,
-    @InjectRepository(RefreshToken) private readonly refreshTokens: Repository<RefreshToken>,
+    @InjectRepository(RefreshToken)
+    private readonly refreshTokens: Repository<RefreshToken>,
     @InjectRepository(OtpCode) private readonly otpCodes: Repository<OtpCode>,
-    @InjectRepository(Student) private readonly studentsRepository: Repository<Student>,
+    @InjectRepository(Student)
+    private readonly studentsRepository: Repository<Student>,
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
@@ -58,9 +54,7 @@ export class AuthService {
     const tokenHash = this.hashToken(refreshTokenValue)
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000)
 
-    await this.refreshTokens.save(
-      this.refreshTokens.create({ userId: user.id, tokenHash, expiresAt }),
-    )
+    await this.refreshTokens.save(this.refreshTokens.create({ userId: user.id, tokenHash, expiresAt }))
 
     return {
       accessToken,
@@ -122,7 +116,7 @@ export class AuthService {
   }
 
   async requestOtp(email: string) {
-    const code = String(Math.floor(100000 + Math.random() * 900000))
+    const code = String(crypto.randomInt(100000, 1000000))
     const codeHash = await bcrypt.hash(code, 10)
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000)
 
@@ -134,7 +128,11 @@ export class AuthService {
 
   async verifyOtp(dto: OtpVerifyDto) {
     const candidate = await this.otpCodes.findOne({
-      where: { email: dto.email, consumed: false, expiresAt: MoreThan(new Date()) },
+      where: {
+        email: dto.email,
+        consumed: false,
+        expiresAt: MoreThan(new Date()),
+      },
       order: { createdAt: 'DESC' },
     })
     if (!candidate) throw new BadRequestException('No active verification code for this email')
@@ -170,14 +168,31 @@ export class AuthService {
       throw new ConflictException('An account with this email already exists')
     }
     const status = dto.role === SignupRole.STUDENT ? UserStatus.PENDING_CONSENT : UserStatus.ACTIVE
+    const rosterRow =
+      dto.role === SignupRole.STUDENT
+        ? await this.studentsRepository.findOne({
+            where: { studentEmail: dto.email },
+          })
+        : null
+    if (dto.role === SignupRole.STUDENT && !rosterRow) {
+      throw new BadRequestException('This student email is not registered by a school')
+    }
     const user = this.usersRepository.create({
       name: dto.name,
       email: dto.email,
       phone: dto.phone ?? null,
       role: dto.role as unknown as Role,
       status,
+      schoolId: rosterRow?.schoolId ?? null,
     })
-    return this.usersRepository.save(user)
+    return this.usersRepository.manager.transaction(async (manager) => {
+      const saved = await manager.save(user)
+      if (rosterRow) {
+        rosterRow.userId = saved.id
+        await manager.save(rosterRow)
+      }
+      return saved
+    })
   }
 
   async giveParentConsent(parentId: string, studentId: string) {
@@ -186,8 +201,15 @@ export class AuthService {
     if (student.role !== Role.STUDENT) {
       throw new BadRequestException('Consent can only be granted for a student account')
     }
-    const rosterRow = await this.studentsRepository.findOne({ where: { userId: studentId } })
-    if (!rosterRow || !parent.email || !rosterRow.parentEmail || parent.email.toLowerCase() !== rosterRow.parentEmail.toLowerCase()) {
+    const rosterRow = await this.studentsRepository.findOne({
+      where: { userId: studentId },
+    })
+    if (
+      !rosterRow ||
+      !parent.email ||
+      !rosterRow.parentEmail ||
+      parent.email.toLowerCase() !== rosterRow.parentEmail.toLowerCase()
+    ) {
       throw new UnauthorizedException('This parent account is not authorized for the student')
     }
 

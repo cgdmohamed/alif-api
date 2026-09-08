@@ -2,27 +2,34 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { School } from './school.entity'
-import { SchoolInvoice } from './school-invoice.entity'
-import { SchoolApproval } from './school-approval.entity'
+import { InvoiceStatus, SchoolInvoice } from './school-invoice.entity'
+import { ApprovalStatus, SchoolApproval } from './school-approval.entity'
 import { PackagesService } from '../packages/packages.service'
 import { ActivityLogService } from '../activity-log/activity-log.service'
 import { ActivityTone } from '../activity-log/activity-log.entity'
 import type { CreateSchoolDto } from './dto/create-school.dto'
 import type { UpdateSchoolDto } from './dto/update-school.dto'
 import type { SubscribeSchoolDto } from './dto/subscribe-school.dto'
+import type { CreateInvoiceDto } from './dto/create-invoice.dto'
 
 @Injectable()
 export class SchoolsService {
   constructor(
-    @InjectRepository(School) private readonly schoolsRepository: Repository<School>,
-    @InjectRepository(SchoolInvoice) private readonly invoicesRepository: Repository<SchoolInvoice>,
-    @InjectRepository(SchoolApproval) private readonly approvalsRepository: Repository<SchoolApproval>,
+    @InjectRepository(School)
+    private readonly schoolsRepository: Repository<School>,
+    @InjectRepository(SchoolInvoice)
+    private readonly invoicesRepository: Repository<SchoolInvoice>,
+    @InjectRepository(SchoolApproval)
+    private readonly approvalsRepository: Repository<SchoolApproval>,
     private readonly packagesService: PackagesService,
     private readonly activityLog: ActivityLogService,
   ) {}
 
   findAll() {
-    return this.schoolsRepository.find({ relations: ['contacts'], order: { createdAt: 'DESC' } })
+    return this.schoolsRepository.find({
+      relations: ['contacts'],
+      order: { createdAt: 'DESC' },
+    })
   }
 
   async findOne(id: string) {
@@ -70,11 +77,53 @@ export class SchoolsService {
 
   async invoices(schoolId: string) {
     await this.findOne(schoolId)
-    return this.invoicesRepository.find({ where: { schoolId }, order: { issuedAt: 'DESC' } })
+    return this.invoicesRepository.find({
+      where: { schoolId },
+      order: { issuedAt: 'DESC' },
+    })
   }
 
   async approvals(schoolId: string) {
     await this.findOne(schoolId)
-    return this.approvalsRepository.find({ where: { schoolId }, order: { createdAt: 'DESC' } })
+    return this.approvalsRepository.find({
+      where: { schoolId },
+      order: { createdAt: 'DESC' },
+    })
+  }
+
+  async reviewApproval(
+    schoolId: string,
+    approvalId: string,
+    status: ApprovalStatus.APPROVED | ApprovalStatus.REJECTED,
+    reviewerId: string,
+  ) {
+    const approval = await this.approvalsRepository.findOne({
+      where: { id: approvalId, schoolId },
+    })
+    if (!approval) throw new NotFoundException('Approval request not found')
+    approval.status = status
+    approval.reviewedBy = reviewerId
+    approval.reviewedAt = new Date()
+    return this.approvalsRepository.save(approval)
+  }
+
+  async createInvoice(schoolId: string, dto: CreateInvoiceDto) {
+    await this.findOne(schoolId)
+    return this.invoicesRepository.save(
+      this.invoicesRepository.create({
+        schoolId,
+        issuedAt: dto.issuedAt,
+        amount: dto.amount,
+      }),
+    )
+  }
+
+  async markInvoicePaid(schoolId: string, invoiceId: string) {
+    const invoice = await this.invoicesRepository.findOne({
+      where: { id: invoiceId, schoolId },
+    })
+    if (!invoice) throw new NotFoundException('Invoice not found')
+    invoice.status = InvoiceStatus.PAID
+    return this.invoicesRepository.save(invoice)
   }
 }

@@ -12,6 +12,7 @@ import { Student } from '../students/student.entity'
 import { Role } from '../../common/enums/role.enum'
 import { assertSchoolAccess, type AuthUser } from '../../common/authz/school-access'
 import { Class } from '../classes/class.entity'
+import { NotificationsService } from '../notifications/notifications.service'
 
 export type MeetingScope = 'today' | 'week' | 'month'
 
@@ -28,19 +29,30 @@ function scopeRange(scope: MeetingScope): [Date, Date] {
 @Injectable()
 export class MeetingsService {
   constructor(
-    @InjectRepository(Meeting) private readonly meetingsRepository: Repository<Meeting>,
-    @InjectRepository(ContentBlock) private readonly blocksRepository: Repository<ContentBlock>,
-    @InjectRepository(Recording) private readonly recordingsRepository: Repository<Recording>,
-    @InjectRepository(Student) private readonly studentsRepository: Repository<Student>,
-    @InjectRepository(Class) private readonly classesRepository: Repository<Class>,
+    @InjectRepository(Meeting)
+    private readonly meetingsRepository: Repository<Meeting>,
+    @InjectRepository(ContentBlock)
+    private readonly blocksRepository: Repository<ContentBlock>,
+    @InjectRepository(Recording)
+    private readonly recordingsRepository: Repository<Recording>,
+    @InjectRepository(Student)
+    private readonly studentsRepository: Repository<Student>,
+    @InjectRepository(Class)
+    private readonly classesRepository: Repository<Class>,
     @Inject(AGORA_PROVIDER) private readonly agoraProvider: AgoraProvider,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async findByScope(user: AuthUser, scope?: MeetingScope) {
     const meetings = scope
-      ? await this.meetingsRepository.find({ where: { scheduledAt: Between(...scopeRange(scope)) }, order: { scheduledAt: 'ASC' } })
+      ? await this.meetingsRepository.find({
+          where: { scheduledAt: Between(...scopeRange(scope)) },
+          order: { scheduledAt: 'ASC' },
+        })
       : await this.meetingsRepository.find({ order: { scheduledAt: 'ASC' } })
-    const allowed = await Promise.all(meetings.map(async (meeting) => (await this.canAccess(meeting, user)) ? meeting : null))
+    const allowed = await Promise.all(
+      meetings.map(async (meeting) => ((await this.canAccess(meeting, user)) ? meeting : null)),
+    )
     return allowed.filter((meeting): meeting is Meeting => meeting !== null)
   }
 
@@ -56,10 +68,14 @@ export class MeetingsService {
       return Boolean(user.schoolId && meeting.classEntity.schoolId === user.schoolId)
     }
     if (user.role === Role.STUDENT) {
-      return this.studentsRepository.exists({ where: { userId: user.id, classId: meeting.classId } })
+      return this.studentsRepository.exists({
+        where: { userId: user.id, classId: meeting.classId },
+      })
     }
     if (user.role === Role.PARENT) {
-      return this.studentsRepository.exists({ where: { parentUserId: user.id, classId: meeting.classId } })
+      return this.studentsRepository.exists({
+        where: { parentUserId: user.id, classId: meeting.classId },
+      })
     }
     return false
   }
@@ -75,7 +91,9 @@ export class MeetingsService {
   }
 
   async create(dto: CreateMeetingDto, user?: AuthUser) {
-    const classEntity = await this.classesRepository.findOne({ where: { id: dto.classId } })
+    const classEntity = await this.classesRepository.findOne({
+      where: { id: dto.classId },
+    })
     if (!classEntity) throw new NotFoundException('Class not found')
     if (user) assertSchoolAccess(user, classEntity.schoolId)
     const meeting = this.meetingsRepository.create({
@@ -88,7 +106,24 @@ export class MeetingsService {
     const saved = await this.meetingsRepository.save(meeting)
     const agora = await this.agoraProvider.createSession(dto.title, saved.id)
     saved.agoraChannelName = agora.channelName
-    return this.meetingsRepository.save(saved)
+    const result = await this.meetingsRepository.save(saved)
+    const students = await this.studentsRepository.find({
+      where: { classId: saved.classId },
+    })
+    await Promise.all(
+      students.flatMap((student) =>
+        [student.userId, student.parentUserId]
+          .filter((id): id is string => Boolean(id))
+          .map((id) =>
+            this.notifications.create(
+              id,
+              'موعد جلسة جديد',
+              `${saved.title} — ${saved.scheduledAt.toLocaleString('ar')}`,
+            ),
+          ),
+      ),
+    )
+    return result
   }
 
   async update(id: string, dto: UpdateMeetingDto, user: AuthUser) {
@@ -160,7 +195,9 @@ export class MeetingsService {
 
   async recording(id: string, user: AuthUser) {
     await this.findOneForUser(id, user)
-    const recording = await this.recordingsRepository.findOne({ where: { meetingId: id } })
+    const recording = await this.recordingsRepository.findOne({
+      where: { meetingId: id },
+    })
     if (!recording) throw new NotFoundException('No recording available for this meeting yet')
     return recording
   }
