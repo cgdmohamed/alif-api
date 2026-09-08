@@ -20,6 +20,12 @@ export class SupportController {
     return this.supportService.findAll()
   }
 
+  @Roles(Role.SUPPORT_AGENT, Role.PLATFORM_ADMIN)
+  @Get('agents')
+  agents() {
+    return this.supportService.agents()
+  }
+
   @Get('conversations/mine')
   findOrCreateMine(@CurrentUser() user: { id: string }) {
     return this.supportService.findOrCreateMine(user.id)
@@ -41,13 +47,13 @@ export class SupportController {
 
   @Roles(Role.SUPPORT_AGENT, Role.PLATFORM_ADMIN)
   @Post('conversations/:id/transfer')
-  transfer(@Param('id') id: string, @Body() dto: TransferConversationDto) {
-    return this.supportService.transfer(id, dto.agentId)
+  transfer(@Param('id') id: string, @Body() dto: TransferConversationDto, @CurrentUser() user: AuthUser) {
+    return this.supportService.transfer(id, dto.agentId, user)
   }
 
   @Roles(Role.SUPPORT_AGENT, Role.PLATFORM_ADMIN)
   @Post('conversations/:id/close')
-  close(@Param('id') id: string) {
-    return this.supportService.close(id)
+  close(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.supportService.close(id, user)
   }
 }

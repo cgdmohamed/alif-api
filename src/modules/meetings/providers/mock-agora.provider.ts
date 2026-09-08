@@ -22,8 +22,6 @@ export class MockAgoraProvider implements AgoraProvider {
   }
 
   async getRecordingUrl(channelName: string): Promise<string | null> {
-    // Mock provider stays fully fake so local dev/demo flows (e.g. the
-    // recordings library) still populate without real Agora credentials.
-    return `https://agora.mock/recording/${channelName}`
+    return null
   }
 }

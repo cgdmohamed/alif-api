@@ -5,6 +5,7 @@ import { SupportConversation, ConversationStatus } from './support-conversation.
 import { SupportMessage } from './support-message.entity'
 import { Role } from '../../common/enums/role.enum'
 import type { AuthUser } from '../../common/authz/school-access'
+import { User, UserStatus } from '../users/user.entity'
 
 @Injectable()
 export class SupportService {
@@ -13,10 +14,19 @@ export class SupportService {
     private readonly conversationsRepository: Repository<SupportConversation>,
     @InjectRepository(SupportMessage)
     private readonly messagesRepository: Repository<SupportMessage>,
+    @InjectRepository(User) private readonly usersRepository: Repository<User>,
   ) {}
 
   findAll() {
     return this.conversationsRepository.find({ order: { createdAt: 'DESC' } })
+  }
+
+  agents() {
+    return this.usersRepository.find({
+      where: { role: Role.SUPPORT_AGENT, status: UserStatus.ACTIVE },
+      select: ['id', 'name', 'email', 'role', 'status'],
+      order: { name: 'ASC' },
+    })
   }
 
   async findOrCreateMine(participantId: string) {
@@ -55,14 +65,18 @@ export class SupportService {
     )
   }
 
-  async transfer(id: string, agentId: string) {
+  async transfer(id: string, agentId: string, user: AuthUser) {
     const conversation = await this.findOne(id)
+    this.assertAccess(conversation, user)
+    const agent = await this.usersRepository.findOne({ where: { id: agentId, role: Role.SUPPORT_AGENT, status: UserStatus.ACTIVE } })
+    if (!agent) throw new NotFoundException('Support agent not found')
     conversation.agentId = agentId
     return this.conversationsRepository.save(conversation)
   }
 
-  async close(id: string) {
+  async close(id: string, user: AuthUser) {
     const conversation = await this.findOne(id)
+    this.assertAccess(conversation, user)
     conversation.status = ConversationStatus.CLOSED
     return this.conversationsRepository.save(conversation)
   }

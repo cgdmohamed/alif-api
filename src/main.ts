@@ -6,9 +6,18 @@ import { ValidationPipe } from '@nestjs/common'
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { AppModule } from './app.module'
 import { HttpExceptionFilter } from './common/filters/http-exception.filter'
+import type { NextFunction, Request, Response } from 'express'
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule)
+  app.set('trust proxy', 1)
+  app.use((_request: Request, response: Response, next: NextFunction) => {
+    response.setHeader('X-Content-Type-Options', 'nosniff')
+    response.setHeader('X-Frame-Options', 'DENY')
+    response.setHeader('Referrer-Policy', 'no-referrer')
+    response.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()')
+    next()
+  })
 
   // LocalStorageProvider (content-library uploads) saves to ./uploads and
   // returns "/uploads/<key>" URLs — nothing served that path over HTTP
@@ -50,4 +59,8 @@ async function bootstrap() {
   console.log(`Alef API listening on http://localhost:${port} (docs at /docs)`)
 }
 
-bootstrap()
+bootstrap().catch((error: unknown) => {
+  // eslint-disable-next-line no-console
+  console.error('Failed to start Alef API', error)
+  process.exit(1)
+})
