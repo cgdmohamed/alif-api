@@ -103,6 +103,7 @@ export class AssignmentsService {
   async findOne(id: string) {
     const assignment = await this.assignmentsRepository.findOne({
       where: { id },
+      relations: ['block'],
     })
     if (!assignment) throw new NotFoundException('Assignment not found')
     return assignment
