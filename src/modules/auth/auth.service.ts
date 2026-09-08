@@ -283,6 +283,7 @@ export class AuthService {
           manager.create(User, {
             name: parentName,
             email: parentEmail,
+            phone: dto.parentPhone ?? null,
             role: Role.PARENT,
             status: UserStatus.ACTIVE,
           }),

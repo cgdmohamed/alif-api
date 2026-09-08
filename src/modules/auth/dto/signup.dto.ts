@@ -51,4 +51,9 @@ export class SignupDto {
   @IsOptional()
   @IsEmail()
   parentEmail?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsPhoneNumber()
+  parentPhone?: string;
 }
