@@ -121,23 +121,23 @@ export class AuthService {
     return this.issueTokens(user)
   }
 
-  async requestOtp(phone: string) {
+  async requestOtp(email: string) {
     const code = String(Math.floor(100000 + Math.random() * 900000))
     const codeHash = await bcrypt.hash(code, 10)
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000)
 
-    await this.otpCodes.save(this.otpCodes.create({ phone, codeHash, expiresAt }))
-    await this.otpSender.send(phone, code)
+    await this.otpCodes.save(this.otpCodes.create({ email, codeHash, expiresAt }))
+    await this.otpSender.send(email, code)
 
     return { sent: true, expiresInSeconds: OTP_TTL_MINUTES * 60 }
   }
 
   async verifyOtp(dto: OtpVerifyDto) {
     const candidate = await this.otpCodes.findOne({
-      where: { phone: dto.phone, consumed: false, expiresAt: MoreThan(new Date()) },
+      where: { email: dto.email, consumed: false, expiresAt: MoreThan(new Date()) },
       order: { createdAt: 'DESC' },
     })
-    if (!candidate) throw new BadRequestException('No active verification code for this number')
+    if (!candidate) throw new BadRequestException('No active verification code for this email')
 
     if (candidate.attempts >= OTP_MAX_ATTEMPTS) {
       candidate.consumed = true
@@ -155,8 +155,8 @@ export class AuthService {
     candidate.consumed = true
     await this.otpCodes.save(candidate)
 
-    const user = await this.usersService.findByPhone(dto.phone)
-    if (!user) throw new BadRequestException('No account found for this number — sign up first')
+    const user = await this.usersService.findByEmail(dto.email)
+    if (!user) throw new BadRequestException('No account found for this email — sign up first')
     if (user.status === UserStatus.DISABLED) {
       throw new UnauthorizedException('This account is disabled')
     }
@@ -166,13 +166,14 @@ export class AuthService {
   }
 
   async signup(dto: SignupDto) {
-    if (await this.usersRepository.exists({ where: { phone: dto.phone } })) {
-      throw new ConflictException('An account with this phone number already exists')
+    if (await this.usersRepository.exists({ where: { email: dto.email } })) {
+      throw new ConflictException('An account with this email already exists')
     }
     const status = dto.role === SignupRole.STUDENT ? UserStatus.PENDING_CONSENT : UserStatus.ACTIVE
     const user = this.usersRepository.create({
       name: dto.name,
-      phone: dto.phone,
+      email: dto.email,
+      phone: dto.phone ?? null,
       role: dto.role as unknown as Role,
       status,
     })

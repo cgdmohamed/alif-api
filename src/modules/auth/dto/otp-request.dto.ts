@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsPhoneNumber } from 'class-validator'
+import { IsEmail } from 'class-validator'
 
 export class OtpRequestDto {
   @ApiProperty()
-  @IsPhoneNumber()
-  phone: string
+  @IsEmail()
+  email: string
 }

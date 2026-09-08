@@ -47,6 +47,13 @@ services:
       # Agora — leave both unset to fall back to MockAgoraProvider.
       - AGORA_APP_ID=${AGORA_APP_ID:-}
       - AGORA_APP_CERTIFICATE=${AGORA_APP_CERTIFICATE:-}
+      # SMTP — delivers login OTP codes. Leave unset to fall back to the
+      # console stub (logs instead of sending), fine for a staging box only.
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-}
       - SERVICE_FQDN_API=${SERVICE_FQDN_API}
     volumes:
       # LocalStorageProvider (content-library uploads) writes to

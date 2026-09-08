@@ -20,14 +20,12 @@ async function seed() {
     { name: 'School Admin', email: 'school-admin@alef.dev', passwordHash, role: Role.SCHOOL_ADMIN, status: UserStatus.ACTIVE },
     { name: 'Teacher', email: 'teacher@alef.dev', passwordHash, role: Role.TEACHER, status: UserStatus.ACTIVE },
     { name: 'Support Agent', email: 'support@alef.dev', passwordHash, role: Role.SUPPORT_AGENT, status: UserStatus.ACTIVE },
-    { name: 'Student', phone: '+966500000001', role: Role.STUDENT, status: UserStatus.ACTIVE },
-    { name: 'Parent', phone: '+966500000002', role: Role.PARENT, status: UserStatus.ACTIVE },
+    { name: 'Student', email: 'student@alef.dev', phone: '+966500000001', role: Role.STUDENT, status: UserStatus.ACTIVE },
+    { name: 'Parent', email: 'parent@alef.dev', phone: '+966500000002', role: Role.PARENT, status: UserStatus.ACTIVE },
   ]
 
   for (const seedUser of seedUsers) {
-    const exists = await users.exists({
-      where: seedUser.email ? { email: seedUser.email } : { phone: seedUser.phone! },
-    })
+    const exists = await users.exists({ where: { email: seedUser.email! } })
     if (!exists) {
       await users.save(users.create(seedUser))
       // eslint-disable-next-line no-console

@@ -29,7 +29,7 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('otp/request')
   requestOtp(@Body() dto: OtpRequestDto) {
-    return this.authService.requestOtp(dto.phone)
+    return this.authService.requestOtp(dto.email)
   }
 
   @Public()

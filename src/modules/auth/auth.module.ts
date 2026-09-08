@@ -12,14 +12,16 @@ import { AuthService } from './auth.service'
 import { AuthController } from './auth.controller'
 import { JwtStrategy } from './strategies/jwt.strategy'
 import { OTP_SENDER } from './providers/otp-sender.interface'
-import { ConsoleOtpSender } from './providers/console-otp-sender'
+import { EmailOtpSender } from './providers/email-otp-sender'
 import { ActivityLogModule } from '../activity-log/activity-log.module'
+import { SettingsModule } from '../settings/settings.module'
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, RefreshToken, OtpCode, Student]),
     UsersModule,
     ActivityLogModule,
+    SettingsModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -31,7 +33,7 @@ import { ActivityLogModule } from '../activity-log/activity-log.module'
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, { provide: OTP_SENDER, useClass: ConsoleOtpSender }],
+  providers: [AuthService, JwtStrategy, { provide: OTP_SENDER, useClass: EmailOtpSender }],
   exports: [AuthService],
 })
 export class AuthModule {}

@@ -35,7 +35,7 @@ NestJS + TypeORM + PostgreSQL backend for the Alef Future admin panel and mobile
    ```
    Swagger docs at `http://localhost:3000/docs`.
 
-6. **Seed one user per role** (admin/school-admin/teacher/support all use password `Passw0rd!`; student/parent log in via OTP — the dev `ConsoleOtpSender` logs the code to the server console instead of sending a real SMS):
+6. **Seed one user per role** (admin/school-admin/teacher/support all use password `Passw0rd!`; student/parent log in via email OTP — leave `SMTP_HOST` unset in `.env` and the code is logged to the server console instead of actually being emailed):
    ```bash
    npm run seed
    ```
@@ -53,5 +53,6 @@ The login response includes `accessToken` — pass it as `Authorization: Bearer 
 ## Production notes
 
 - **Migrations run automatically on boot** — the Dockerfile's `CMD` runs `npm run migration:run:prod` (plain `typeorm` CLI against the compiled `dist/config/typeorm.datasource.js` — no `ts-node`, which is dev-only) before starting the server. They're idempotent (TypeORM tracks applied ones in the `migrations` table), so this is safe on every restart, not just the first deploy. `DB_SYNCHRONIZE` defaults to `false` everywhere; only flip it on for disposable local prototyping.
-- Swap the stubbed providers for real ones before going live: `AgoraProvider` (meetings module — see `AGORA_APP_ID`/`AGORA_APP_CERTIFICATE`), `StorageProvider` (content-library module — `LocalStorageProvider` writes to `./uploads`, served at `/uploads/*` and persisted via the `alef_uploads` volume in `docker-compose.yaml`; fine for a single instance, but swap for a real object store — S3-compatible — before scaling to multiple API replicas or wanting off-server backups), `EmailProvider`/`SmsProvider` (settings module) and the separate `OtpSender` (auth module, currently `ConsoleOtpSender` — logs the code instead of texting it) — each has a single provider binding in its module file.
+- **Login OTP is delivered by email**, not SMS — `EmailOtpSender` (auth module) reuses `EMAIL_PROVIDER` from `SettingsModule` (see below), so it's real as soon as `SMTP_*` is configured; no separate credential needed. `SignupDto.email` is the login identifier; `phone` is optional contact metadata only.
+- Swap the remaining stubbed providers for real ones before going live: `AgoraProvider` (meetings module — see `AGORA_APP_ID`/`AGORA_APP_CERTIFICATE`), `StorageProvider` (content-library module — `LocalStorageProvider` writes to `./uploads`, served at `/uploads/*` and persisted via the `alef_uploads` volume in `docker-compose.yaml`; fine for a single instance, but swap for a real object store — S3-compatible — before scaling to multiple API replicas or wanting off-server backups). `EMAIL_PROVIDER` (settings module — `SmtpEmailProvider` binds automatically once `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`SMTP_FROM` are set, falling back to the console stub otherwise) and `SmsProvider` (settings module, still `ConsoleSmsProvider` — no SMS gateway wired yet) — each has a single provider binding in its module file.
 - Deploying with Docker/Coolify? See `docker-compose.yaml` (production) — the local-dev-only `docker-compose.yml` (Postgres alone) is unrelated to it.

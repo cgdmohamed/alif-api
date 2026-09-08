@@ -6,7 +6,7 @@ export class OtpCode {
   id: string
 
   @Column()
-  phone: string
+  email: string
 
   @Column()
   codeHash: string

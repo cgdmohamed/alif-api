@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger'
-import { IsEnum, IsPhoneNumber, IsString } from 'class-validator'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { IsEmail, IsEnum, IsOptional, IsPhoneNumber, IsString } from 'class-validator'
 
 export enum SignupRole {
   STUDENT = 'student',
@@ -11,9 +11,14 @@ export class SignupDto {
   @IsString()
   name: string
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Login identifier — OTP codes are sent here' })
+  @IsEmail()
+  email: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsPhoneNumber()
-  phone: string
+  phone?: string
 
   @ApiProperty({ enum: SignupRole })
   @IsEnum(SignupRole)
