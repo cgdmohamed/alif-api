@@ -3,13 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { ILike, Repository } from 'typeorm'
 import { Recording } from './recording.entity'
 import type { UpdateRecordingDto } from './dto/update-recording.dto'
-
-const TOTAL_STORAGE_BYTES = 1024 * 1024 * 1024 * 1024 // 1 TB, placeholder plan cap
+import { School } from '../schools/school.entity'
 
 @Injectable()
 export class RecordingsService {
   constructor(
     @InjectRepository(Recording) private readonly recordingsRepository: Repository<Recording>,
+    @InjectRepository(School) private readonly schoolsRepository: Repository<School>,
   ) {}
 
   findAll(search?: string) {
@@ -41,10 +41,15 @@ export class RecordingsService {
       .then((r) => ({ sum: r?.sum ?? '0' }))
 
     const usedBytes = Number(sum)
+    const schools = await this.schoolsRepository.find()
+    const totalBytes = schools.reduce(
+      (total, school) => total + (school.package?.storageGB ?? 0) * 1024 ** 3,
+      0,
+    )
     return {
       usedBytes,
-      totalBytes: TOTAL_STORAGE_BYTES,
-      usedPercent: Math.round((usedBytes / TOTAL_STORAGE_BYTES) * 100),
+      totalBytes,
+      usedPercent: totalBytes > 0 ? Math.min(100, Math.round((usedBytes / totalBytes) * 100)) : 0,
     }
   }
 }

@@ -33,10 +33,12 @@ export class SettingsService {
 
   async testConnection(target: 'agora' | 'smtp' | 'sms') {
     if (target === 'smtp') {
-      await this.emailProvider.send('test@alef.dev', 'Alef test email', 'This is a test message.')
+      const recipient = this.config.get<string>('SMTP_USER')
+      if (!recipient) return { target, success: false }
+      await this.emailProvider.send(recipient, 'Alef test email', 'This is a test message.')
     }
     if (target === 'sms') {
-      await this.smsProvider.send('+966500000000', 'Alef test SMS')
+      return { target, success: false }
     }
     if (target === 'agora') {
       // No connection to actually ping — Agora tokens are minted locally
