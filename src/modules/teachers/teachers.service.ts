@@ -5,6 +5,7 @@ import { Teacher, TeacherStatus, RosterSource } from './teacher.entity'
 import { Class } from '../classes/class.entity'
 import { User } from '../users/user.entity'
 import type { CreateTeacherDto } from './dto/create-teacher.dto'
+import { assertSchoolAccess, type AuthUser } from '../../common/authz/school-access'
 
 @Injectable()
 export class TeachersService {
@@ -31,16 +32,18 @@ export class TeachersService {
     return this.teachersRepository.save(entities)
   }
 
-  async toggleStatus(id: string) {
+  async toggleStatus(id: string, user: AuthUser) {
     const teacher = await this.teachersRepository.findOne({ where: { id } })
     if (!teacher) throw new NotFoundException('Teacher not found')
+    assertSchoolAccess(user, teacher.schoolId)
     teacher.status = teacher.status === TeacherStatus.ACTIVE ? TeacherStatus.DISABLED : TeacherStatus.ACTIVE
     return this.teachersRepository.save(teacher)
   }
 
-  async remove(id: string) {
+  async remove(id: string, user: AuthUser) {
     const teacher = await this.teachersRepository.findOne({ where: { id } })
     if (!teacher) throw new NotFoundException('Teacher not found')
+    assertSchoolAccess(user, teacher.schoolId)
     await this.teachersRepository.remove(teacher)
     return { id }
   }

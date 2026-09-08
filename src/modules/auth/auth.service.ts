@@ -181,21 +181,22 @@ export class AuthService {
   }
 
   async giveParentConsent(parentId: string, studentId: string) {
+    const parent = await this.usersService.findOne(parentId)
     const student = await this.usersService.findOne(studentId)
     if (student.role !== Role.STUDENT) {
       throw new BadRequestException('Consent can only be granted for a student account')
     }
-    student.status = UserStatus.ACTIVE
-    await this.usersRepository.save(student)
-
-    // Bridge to the school roster: once a student's own User account is
-    // linked to a roster row (Student.userId), record which parent approved
-    // it so /home/parent and /reports/students/:id can resolve "my children".
     const rosterRow = await this.studentsRepository.findOne({ where: { userId: studentId } })
-    if (rosterRow) {
-      rosterRow.parentUserId = parentId
-      await this.studentsRepository.save(rosterRow)
+    if (!rosterRow || !parent.email || !rosterRow.parentEmail || parent.email.toLowerCase() !== rosterRow.parentEmail.toLowerCase()) {
+      throw new UnauthorizedException('This parent account is not authorized for the student')
     }
+
+    student.status = UserStatus.ACTIVE
+    rosterRow.parentUserId = parentId
+    await this.usersRepository.manager.transaction(async (manager) => {
+      await manager.save(student)
+      await manager.save(rosterRow)
+    })
 
     return this.toPublicUser(student)
   }
@@ -207,6 +208,11 @@ export class AuthService {
       relations: ['user'],
     })
     if (!candidate) throw new UnauthorizedException('Invalid or expired refresh token')
+    if (candidate.user.status !== UserStatus.ACTIVE) {
+      candidate.revoked = true
+      await this.refreshTokens.save(candidate)
+      throw new UnauthorizedException('This account is not active')
+    }
     candidate.revoked = true
     await this.refreshTokens.save(candidate)
     return this.issueTokens(candidate.user)

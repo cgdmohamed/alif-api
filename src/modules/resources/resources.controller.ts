@@ -4,7 +4,6 @@ import { ResourcesService } from './resources.service'
 import { CreateResourceDto } from './dto/create-resource.dto'
 import { UpdateResourceDto } from './dto/update-resource.dto'
 import { ResourceStatus } from './resource.entity'
-import { Public } from '../../common/decorators/public.decorator'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { Role } from '../../common/enums/role.enum'
 
@@ -26,8 +25,7 @@ export class ResourcesController {
     return this.resourcesService.create(dto)
   }
 
-  // Any authenticated role can view a resource — used for the unlocked-by-package check.
-  @Public()
+  // Any authenticated role can view a resource; the global JWT guard still applies.
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.resourcesService.findOne(id)

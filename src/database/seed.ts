@@ -13,7 +13,11 @@ async function seed() {
   await dataSource.initialize()
   const users = dataSource.getRepository(User)
 
-  const passwordHash = await bcrypt.hash('Passw0rd!', 10)
+  const seedPassword = process.env.SEED_PASSWORD
+  if (process.env.NODE_ENV === 'production' && !seedPassword) {
+    throw new Error('SEED_PASSWORD is required when seeding production')
+  }
+  const passwordHash = await bcrypt.hash(seedPassword ?? 'Passw0rd!', 10)
 
   const seedUsers: Partial<User>[] = [
     { name: 'Platform Admin', email: 'admin@alef.dev', passwordHash, role: Role.PLATFORM_ADMIN, status: UserStatus.ACTIVE },

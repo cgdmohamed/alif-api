@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { SupportConversation, ConversationStatus } from './support-conversation.entity'
 import { SupportMessage } from './support-message.entity'
+import { Role } from '../../common/enums/role.enum'
+import type { AuthUser } from '../../common/authz/school-access'
 
 @Injectable()
 export class SupportService {
@@ -32,14 +34,24 @@ export class SupportService {
     return conversation
   }
 
-  messages(conversationId: string) {
+  private assertAccess(conversation: SupportConversation, user: AuthUser) {
+    const staff = user.role === Role.PLATFORM_ADMIN || user.role === Role.SUPPORT_AGENT
+    if (!staff && conversation.participantId !== user.id) {
+      throw new ForbiddenException('You do not have access to this conversation')
+    }
+  }
+
+  async messages(conversationId: string, user: AuthUser) {
+    const conversation = await this.findOne(conversationId)
+    this.assertAccess(conversation, user)
     return this.messagesRepository.find({ where: { conversationId }, order: { createdAt: 'ASC' } })
   }
 
-  async sendMessage(conversationId: string, senderId: string, text: string) {
-    await this.findOne(conversationId)
+  async sendMessage(conversationId: string, user: AuthUser, text: string) {
+    const conversation = await this.findOne(conversationId)
+    this.assertAccess(conversation, user)
     return this.messagesRepository.save(
-      this.messagesRepository.create({ conversationId, senderId, text }),
+      this.messagesRepository.create({ conversationId, senderId: user.id, text }),
     )
   }
 

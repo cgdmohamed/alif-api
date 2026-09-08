@@ -8,6 +8,7 @@ import { MeetingsService } from '../meetings/meetings.service'
 import type { CreateClassDto } from './dto/create-class.dto'
 import type { UpdateClassDto } from './dto/update-class.dto'
 import type { AddMeetingDto } from './dto/add-meeting.dto'
+import { assertSchoolAccess, type AuthUser } from '../../common/authz/school-access'
 
 // AddMeetingDto/InitialMeetingDto only take a date+time, no duration — this
 // is the same default every other "schedule a live meeting" entry point in
@@ -47,6 +48,12 @@ export class ClassesService {
     return classEntity
   }
 
+  async findOneForUser(id: string, user: AuthUser) {
+    const classEntity = await this.findOne(id)
+    assertSchoolAccess(user, classEntity.schoolId)
+    return classEntity
+  }
+
   async create(schoolId: string, dto: CreateClassDto) {
     const resource = dto.resourceId
       ? await this.resourcesRepository.findOne({ where: { id: dto.resourceId } })
@@ -68,15 +75,17 @@ export class ClassesService {
     return this.findOne(saved.id)
   }
 
-  async update(id: string, dto: UpdateClassDto) {
+  async update(id: string, dto: UpdateClassDto, user?: AuthUser) {
     const classEntity = await this.findOne(id)
+    if (user) assertSchoolAccess(user, classEntity.schoolId)
     const { initialMeetings, ...rest } = dto
     Object.assign(classEntity, rest)
     return this.classesRepository.save(classEntity)
   }
 
-  async addMeeting(classId: string, dto: AddMeetingDto) {
-    await this.findOne(classId)
+  async addMeeting(classId: string, dto: AddMeetingDto, user?: AuthUser) {
+    const classEntity = await this.findOne(classId)
+    if (user) assertSchoolAccess(user, classEntity.schoolId)
     // Every class meeting is backed by a real, joinable Meeting (Agora
     // channel + all the /meetings endpoints) rather than being just a
     // date/time row — see class-meeting.entity.ts's meetingId link.

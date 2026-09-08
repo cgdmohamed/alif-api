@@ -6,6 +6,7 @@ import { TransferConversationDto } from './dto/transfer-conversation.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { Role } from '../../common/enums/role.enum'
+import type { AuthUser } from '../../common/authz/school-access'
 
 @ApiTags('support')
 @ApiBearerAuth()
@@ -25,17 +26,17 @@ export class SupportController {
   }
 
   @Get('conversations/:id/messages')
-  messages(@Param('id') id: string) {
-    return this.supportService.messages(id)
+  messages(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.supportService.messages(id, user)
   }
 
   @Post('conversations/:id/messages')
   sendMessage(
     @Param('id') id: string,
-    @CurrentUser() user: { id: string },
+    @CurrentUser() user: AuthUser,
     @Body() dto: SendMessageDto,
   ) {
-    return this.supportService.sendMessage(id, user.id, dto.text)
+    return this.supportService.sendMessage(id, user, dto.text)
   }
 
   @Roles(Role.SUPPORT_AGENT, Role.PLATFORM_ADMIN)

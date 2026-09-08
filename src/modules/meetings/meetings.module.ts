@@ -9,9 +9,11 @@ import { MeetingsController } from './meetings.controller'
 import { AGORA_PROVIDER } from './providers/agora-provider.interface'
 import { MockAgoraProvider } from './providers/mock-agora.provider'
 import { AgoraRtcProvider } from './providers/agora-rtc.provider'
+import { Student } from '../students/student.entity'
+import { Class } from '../classes/class.entity'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Meeting, Recording, ContentBlock])],
+  imports: [TypeOrmModule.forFeature([Meeting, Recording, ContentBlock, Student, Class])],
   controllers: [MeetingsController],
   providers: [
     MeetingsService,

@@ -6,7 +6,6 @@ import { CreateUnitDto } from './dto/create-unit.dto'
 import { CreateSessionDto } from './dto/create-session.dto'
 import { CreateBlockDto } from './dto/create-block.dto'
 import { UpdateBlockDto } from './dto/update-block.dto'
-import { Public } from '../../common/decorators/public.decorator'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { Role } from '../../common/enums/role.enum'
 
@@ -16,7 +15,6 @@ import { Role } from '../../common/enums/role.enum'
 export class ProgramsController {
   constructor(private readonly programsService: ProgramsService) {}
 
-  @Public()
   @Get('resources/:resourceId/program')
   getTree(@Param('resourceId') resourceId: string) {
     return this.programsService.getTree(resourceId)

@@ -7,6 +7,9 @@ import { Student } from '../students/student.entity'
 import type { CreateAssignmentDto } from './dto/create-assignment.dto'
 import type { SubmitAssignmentDto } from './dto/submit-assignment.dto'
 import type { GradeSubmissionDto } from './dto/grade-submission.dto'
+import { Class } from '../classes/class.entity'
+import { Role } from '../../common/enums/role.enum'
+import { assertSchoolAccess, type AuthUser } from '../../common/authz/school-access'
 
 const POINTS_PER_GRADED_ASSIGNMENT = 10
 
@@ -16,19 +19,36 @@ export class AssignmentsService {
     @InjectRepository(Assignment) private readonly assignmentsRepository: Repository<Assignment>,
     @InjectRepository(Submission) private readonly submissionsRepository: Repository<Submission>,
     @InjectRepository(Student) private readonly studentsRepository: Repository<Student>,
+    @InjectRepository(Class) private readonly classesRepository: Repository<Class>,
   ) {}
 
-  findForClass(classId: string) {
+  private async assertClassAccess(classId: string, user: AuthUser) {
+    const classEntity = await this.classesRepository.findOne({ where: { id: classId } })
+    if (!classEntity) throw new NotFoundException('Class not found')
+    assertSchoolAccess(user, classEntity.schoolId)
+  }
+
+  private async studentForUser(userId: string) {
+    const student = await this.studentsRepository.findOne({ where: { userId } })
+    if (!student) throw new NotFoundException('No student roster record linked to this account')
+    return student
+  }
+
+  async findForClass(classId: string, user: AuthUser) {
+    await this.assertClassAccess(classId, user)
     return this.assignmentsRepository.find({ where: { classId }, order: { dueAt: 'ASC' } })
   }
 
-  async findAllWithCounts() {
+  async findAllWithCounts(user: AuthUser) {
     const assignments = await this.assignmentsRepository.find({
       relations: ['classEntity'],
       order: { dueAt: 'DESC' },
     })
+    const scoped = user.role === Role.PLATFORM_ADMIN
+      ? assignments
+      : assignments.filter((assignment) => assignment.classEntity.schoolId === user.schoolId)
     return Promise.all(
-      assignments.map(async (a) => {
+      scoped.map(async (a) => {
         const submitted = await this.submissionsRepository.count({
           where: { assignmentId: a.id, submittedAt: Not(IsNull()) },
         })
@@ -40,7 +60,8 @@ export class AssignmentsService {
     )
   }
 
-  create(classId: string, dto: CreateAssignmentDto) {
+  async create(classId: string, dto: CreateAssignmentDto, user: AuthUser) {
+    await this.assertClassAccess(classId, user)
     return this.assignmentsRepository.save(
       this.assignmentsRepository.create({
         classId,
@@ -68,15 +89,15 @@ export class AssignmentsService {
     return submission
   }
 
-  async myAssignments(studentId: string) {
-    const student = await this.studentsRepository.findOne({ where: { id: studentId } })
-    if (!student?.classId) return []
+  async myAssignments(userId: string) {
+    const student = await this.studentForUser(userId)
+    if (!student.classId) return []
 
     const assignments = await this.assignmentsRepository.find({
       where: { classId: student.classId },
       order: { dueAt: 'ASC' },
     })
-    const submissions = await this.submissionsRepository.find({ where: { studentId } })
+    const submissions = await this.submissionsRepository.find({ where: { studentId: student.id } })
     const byAssignment = new Map(submissions.map((s) => [s.assignmentId, s]))
 
     return assignments.map((a) => ({ ...a, submission: byAssignment.get(a.id) ?? null }))
@@ -88,9 +109,22 @@ export class AssignmentsService {
     return { assignment, submission }
   }
 
-  async submit(assignmentId: string, studentId: string, dto: SubmitAssignmentDto) {
+  async assignmentDetailForUser(assignmentId: string, user: AuthUser) {
     const assignment = await this.findOne(assignmentId)
-    const submission = await this.submissionFor(assignmentId, studentId)
+    if (user.role === Role.TEACHER || user.role === Role.PLATFORM_ADMIN) {
+      await this.assertClassAccess(assignment.classId, user)
+      return { assignment, submission: null }
+    }
+    const student = await this.studentForUser(user.id)
+    if (student.classId !== assignment.classId) throw new NotFoundException('Assignment not found')
+    return this.assignmentDetail(assignmentId, student.id)
+  }
+
+  async submit(assignmentId: string, userId: string, dto: SubmitAssignmentDto) {
+    const assignment = await this.findOne(assignmentId)
+    const student = await this.studentForUser(userId)
+    if (student.classId !== assignment.classId) throw new NotFoundException('Assignment not found')
+    const submission = await this.submissionFor(assignmentId, student.id)
     submission.answerPayload = dto.answerPayload
     submission.submittedAt = new Date()
     submission.status =
@@ -98,15 +132,20 @@ export class AssignmentsService {
     return this.submissionsRepository.save(submission)
   }
 
-  async result(assignmentId: string, studentId: string) {
-    const submission = await this.submissionsRepository.findOne({ where: { assignmentId, studentId } })
+  async result(assignmentId: string, userId: string) {
+    const assignment = await this.findOne(assignmentId)
+    const student = await this.studentForUser(userId)
+    if (student.classId !== assignment.classId) throw new NotFoundException('Assignment not found')
+    const submission = await this.submissionsRepository.findOne({ where: { assignmentId, studentId: student.id } })
     if (!submission || submission.grade === null) {
       throw new NotFoundException('This assignment has not been graded yet')
     }
     return submission
   }
 
-  submissionsForAssignment(assignmentId: string) {
+  async submissionsForAssignment(assignmentId: string, user: AuthUser) {
+    const assignment = await this.findOne(assignmentId)
+    await this.assertClassAccess(assignment.classId, user)
     return this.submissionsRepository.find({
       where: { assignmentId },
       relations: ['student'],
@@ -114,31 +153,41 @@ export class AssignmentsService {
     })
   }
 
-  gradingQueue() {
-    return this.submissionsRepository.find({
+  async gradingQueue(user: AuthUser) {
+    const submissions = await this.submissionsRepository.find({
       where: { grade: IsNull(), submittedAt: Not(IsNull()) },
-      relations: ['assignment', 'student'],
+      relations: ['assignment', 'assignment.classEntity', 'student'],
       order: { submittedAt: 'ASC' },
     })
+    return user.role === Role.PLATFORM_ADMIN
+      ? submissions
+      : submissions.filter((submission) => submission.assignment.classEntity.schoolId === user.schoolId)
   }
 
-  async grade(submissionId: string, dto: GradeSubmissionDto) {
-    const submission = await this.submissionsRepository.findOne({ where: { id: submissionId } })
+  async grade(submissionId: string, dto: GradeSubmissionDto, user: AuthUser) {
+    const submission = await this.submissionsRepository.findOne({
+      where: { id: submissionId },
+      relations: ['assignment', 'assignment.classEntity'],
+    })
     if (!submission) throw new NotFoundException('Submission not found')
+    assertSchoolAccess(user, submission.assignment.classEntity.schoolId)
     if (!submission.submittedAt) {
       throw new BadRequestException('Cannot grade a submission that has not been turned in')
     }
+    const firstGrade = submission.grade === null
     submission.grade = dto.grade
     submission.teacherNote = dto.teacherNote ?? null
     submission.gradedAt = new Date()
     submission.status = SubmissionStatus.GRADED
     await this.submissionsRepository.save(submission)
 
-    await this.studentsRepository.increment(
-      { id: submission.studentId },
-      'points',
-      POINTS_PER_GRADED_ASSIGNMENT,
-    )
+    if (firstGrade) {
+      await this.studentsRepository.increment(
+        { id: submission.studentId },
+        'points',
+        POINTS_PER_GRADED_ASSIGNMENT,
+      )
+    }
 
     return submission
   }

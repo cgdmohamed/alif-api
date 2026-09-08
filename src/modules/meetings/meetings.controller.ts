@@ -7,6 +7,8 @@ import { PushActivityDto } from './dto/push-activity.dto'
 import { CompleteMeetingDto } from './dto/complete-meeting.dto'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { Role } from '../../common/enums/role.enum'
+import { CurrentUser } from '../../common/decorators/current-user.decorator'
+import type { AuthUser } from '../../common/authz/school-access'
 
 @ApiTags('meetings')
 @ApiBearerAuth()
@@ -16,52 +18,52 @@ export class MeetingsController {
   constructor(private readonly meetingsService: MeetingsService) {}
 
   @Get()
-  findByScope(@Query('scope') scope?: MeetingScope) {
-    return this.meetingsService.findByScope(scope)
+  findByScope(@CurrentUser() user: AuthUser, @Query('scope') scope?: MeetingScope) {
+    return this.meetingsService.findByScope(user, scope)
   }
 
   @Roles(Role.TEACHER, Role.SCHOOL_ADMIN)
   @Post()
-  create(@Body() dto: CreateMeetingDto) {
-    return this.meetingsService.create(dto)
+  create(@Body() dto: CreateMeetingDto, @CurrentUser() user: AuthUser) {
+    return this.meetingsService.create(dto, user)
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.meetingsService.findOne(id)
+  findOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.meetingsService.findOneForUser(id, user)
   }
 
   @Roles(Role.TEACHER, Role.SCHOOL_ADMIN)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateMeetingDto) {
-    return this.meetingsService.update(id, dto)
+  update(@Param('id') id: string, @Body() dto: UpdateMeetingDto, @CurrentUser() user: AuthUser) {
+    return this.meetingsService.update(id, dto, user)
   }
 
   @Post(':id/join')
-  join(@Param('id') id: string) {
-    return this.meetingsService.join(id)
+  join(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.meetingsService.join(id, user)
   }
 
   @Roles(Role.TEACHER)
   @Get(':id/session-plan')
-  sessionPlan(@Param('id') id: string) {
-    return this.meetingsService.sessionPlan(id)
+  sessionPlan(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.meetingsService.sessionPlan(id, user)
   }
 
   @Roles(Role.TEACHER)
   @Post(':id/push-activity')
-  pushActivity(@Param('id') id: string, @Body() dto: PushActivityDto) {
-    return this.meetingsService.pushActivity(id, dto.blockId)
+  pushActivity(@Param('id') id: string, @Body() dto: PushActivityDto, @CurrentUser() user: AuthUser) {
+    return this.meetingsService.pushActivity(id, dto.blockId, user)
   }
 
   @Roles(Role.TEACHER)
   @Post(':id/complete')
-  complete(@Param('id') id: string, @Body() dto: CompleteMeetingDto) {
-    return this.meetingsService.complete(id, dto)
+  complete(@Param('id') id: string, @Body() dto: CompleteMeetingDto, @CurrentUser() user: AuthUser) {
+    return this.meetingsService.complete(id, dto, user)
   }
 
   @Get(':id/recording')
-  recording(@Param('id') id: string) {
-    return this.meetingsService.recording(id)
+  recording(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.meetingsService.recording(id, user)
   }
 }

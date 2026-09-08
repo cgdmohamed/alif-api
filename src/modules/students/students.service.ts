@@ -5,6 +5,7 @@ import { Student } from './student.entity'
 import { RosterSource } from '../teachers/teacher.entity'
 import { Class } from '../classes/class.entity'
 import type { CreateStudentDto } from './dto/create-student.dto'
+import { assertSchoolAccess, type AuthUser } from '../../common/authz/school-access'
 
 @Injectable()
 export class StudentsService {
@@ -60,9 +61,10 @@ export class StudentsService {
     return this.studentsRepository.save(entities)
   }
 
-  async remove(id: string) {
+  async remove(id: string, user: AuthUser) {
     const student = await this.studentsRepository.findOne({ where: { id } })
     if (!student) throw new NotFoundException('Student not found')
+    assertSchoolAccess(user, student.schoolId)
     await this.studentsRepository.remove(student)
     return { id }
   }

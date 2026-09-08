@@ -6,6 +6,8 @@ import { UpdateClassDto } from './dto/update-class.dto'
 import { AddMeetingDto } from './dto/add-meeting.dto'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { Role } from '../../common/enums/role.enum'
+import { CurrentUser } from '../../common/decorators/current-user.decorator'
+import { assertSchoolAccess, type AuthUser } from '../../common/authz/school-access'
 
 @ApiTags('classes')
 @ApiBearerAuth()
@@ -21,31 +23,33 @@ export class ClassesController {
 
   @Roles(Role.PLATFORM_ADMIN, Role.SCHOOL_ADMIN, Role.TEACHER)
   @Get('schools/:schoolId/classes')
-  findAllForSchool(@Param('schoolId') schoolId: string) {
+  findAllForSchool(@Param('schoolId') schoolId: string, @CurrentUser() user: AuthUser) {
+    assertSchoolAccess(user, schoolId)
     return this.classesService.findAllForSchool(schoolId)
   }
 
   @Roles(Role.PLATFORM_ADMIN, Role.SCHOOL_ADMIN)
   @Post('schools/:schoolId/classes')
-  create(@Param('schoolId') schoolId: string, @Body() dto: CreateClassDto) {
+  create(@Param('schoolId') schoolId: string, @Body() dto: CreateClassDto, @CurrentUser() user: AuthUser) {
+    assertSchoolAccess(user, schoolId)
     return this.classesService.create(schoolId, dto)
   }
 
   @Roles(Role.SCHOOL_ADMIN, Role.TEACHER, Role.STUDENT)
   @Get('classes/:id')
-  findOne(@Param('id') id: string) {
-    return this.classesService.findOne(id)
+  findOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.classesService.findOneForUser(id, user)
   }
 
   @Roles(Role.SCHOOL_ADMIN)
   @Patch('classes/:id')
-  update(@Param('id') id: string, @Body() dto: UpdateClassDto) {
-    return this.classesService.update(id, dto)
+  update(@Param('id') id: string, @Body() dto: UpdateClassDto, @CurrentUser() user: AuthUser) {
+    return this.classesService.update(id, dto, user)
   }
 
   @Roles(Role.SCHOOL_ADMIN, Role.TEACHER)
   @Post('classes/:id/meetings')
-  addMeeting(@Param('id') id: string, @Body() dto: AddMeetingDto) {
-    return this.classesService.addMeeting(id, dto)
+  addMeeting(@Param('id') id: string, @Body() dto: AddMeetingDto, @CurrentUser() user: AuthUser) {
+    return this.classesService.addMeeting(id, dto, user)
   }
 }

@@ -6,11 +6,14 @@ import { Student } from '../students/student.entity'
 import { RosterSource } from '../teachers/teacher.entity'
 import { User } from '../users/user.entity'
 import type { CreateEnrollmentCodeDto } from './dto/create-enrollment-code.dto'
+import { assertSchoolAccess, type AuthUser } from '../../common/authz/school-access'
+import { Class } from '../classes/class.entity'
+import { randomInt } from 'crypto'
 
 function generateCodeString() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   const part = () =>
-    Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+    Array.from({ length: 4 }, () => chars[randomInt(chars.length)]).join('')
   return `ALEF-${part()}-${part()}`
 }
 
@@ -23,13 +26,17 @@ export class EnrollmentCodesService {
     private readonly studentsRepository: Repository<Student>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    @InjectRepository(Class)
+    private readonly classesRepository: Repository<Class>,
   ) {}
 
   findAllForSchool(schoolId: string) {
     return this.codesRepository.find({ where: { schoolId }, order: { createdAt: 'DESC' } })
   }
 
-  create(schoolId: string, dto: CreateEnrollmentCodeDto) {
+  async create(schoolId: string, dto: CreateEnrollmentCodeDto) {
+    const classEntity = await this.classesRepository.findOne({ where: { id: dto.classId, schoolId } })
+    if (!classEntity) throw new BadRequestException('Class does not belong to this school')
     const code = this.codesRepository.create({
       schoolId,
       code: generateCodeString(),
@@ -43,9 +50,10 @@ export class EnrollmentCodesService {
     return this.codesRepository.save(code)
   }
 
-  async disable(id: string) {
+  async disable(id: string, user: AuthUser) {
     const code = await this.codesRepository.findOne({ where: { id } })
     if (!code) throw new NotFoundException('Enrollment code not found')
+    assertSchoolAccess(user, code.schoolId)
     code.status = EnrollmentCodeStatus.DISABLED
     return this.codesRepository.save(code)
   }

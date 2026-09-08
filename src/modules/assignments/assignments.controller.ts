@@ -7,6 +7,7 @@ import { GradeSubmissionDto } from './dto/grade-submission.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { Role } from '../../common/enums/role.enum'
+import type { AuthUser } from '../../common/authz/school-access'
 
 @ApiTags('assignments')
 @ApiBearerAuth()
@@ -16,45 +17,45 @@ export class AssignmentsController {
 
   @Roles(Role.PLATFORM_ADMIN)
   @Get('assignments')
-  findAllWithCounts() {
-    return this.assignmentsService.findAllWithCounts()
+  findAllWithCounts(@CurrentUser() user: AuthUser) {
+    return this.assignmentsService.findAllWithCounts(user)
   }
 
   @Roles(Role.TEACHER, Role.PLATFORM_ADMIN)
   @Get('classes/:classId/assignments')
-  findForClass(@Param('classId') classId: string) {
-    return this.assignmentsService.findForClass(classId)
+  findForClass(@Param('classId') classId: string, @CurrentUser() user: AuthUser) {
+    return this.assignmentsService.findForClass(classId, user)
   }
 
   @Roles(Role.TEACHER, Role.PLATFORM_ADMIN)
   @Post('classes/:classId/assignments')
-  create(@Param('classId') classId: string, @Body() dto: CreateAssignmentDto) {
-    return this.assignmentsService.create(classId, dto)
+  create(@Param('classId') classId: string, @Body() dto: CreateAssignmentDto, @CurrentUser() user: AuthUser) {
+    return this.assignmentsService.create(classId, dto, user)
   }
 
   @Roles(Role.STUDENT)
   @Get('students/me/assignments')
-  myAssignments(@CurrentUser() user: { id: string }) {
+  myAssignments(@CurrentUser() user: AuthUser) {
     return this.assignmentsService.myAssignments(user.id)
   }
 
   @Roles(Role.STUDENT, Role.TEACHER)
   @Get('assignments/:id')
-  detail(@Param('id') id: string, @CurrentUser() user: { id: string }) {
-    return this.assignmentsService.assignmentDetail(id, user.id)
+  detail(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.assignmentsService.assignmentDetailForUser(id, user)
   }
 
   @Roles(Role.TEACHER, Role.PLATFORM_ADMIN)
   @Get('assignments/:id/submissions')
-  submissionsForAssignment(@Param('id') id: string) {
-    return this.assignmentsService.submissionsForAssignment(id)
+  submissionsForAssignment(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.assignmentsService.submissionsForAssignment(id, user)
   }
 
   @Roles(Role.STUDENT)
   @Post('assignments/:id/submit')
   submit(
     @Param('id') id: string,
-    @CurrentUser() user: { id: string },
+    @CurrentUser() user: AuthUser,
     @Body() dto: SubmitAssignmentDto,
   ) {
     return this.assignmentsService.submit(id, user.id, dto)
@@ -62,19 +63,19 @@ export class AssignmentsController {
 
   @Roles(Role.STUDENT)
   @Get('assignments/:id/result')
-  result(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+  result(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.assignmentsService.result(id, user.id)
   }
 
   @Roles(Role.TEACHER, Role.PLATFORM_ADMIN)
   @Get('grading-queue')
-  gradingQueue() {
-    return this.assignmentsService.gradingQueue()
+  gradingQueue(@CurrentUser() user: AuthUser) {
+    return this.assignmentsService.gradingQueue(user)
   }
 
   @Roles(Role.TEACHER, Role.PLATFORM_ADMIN)
   @Post('submissions/:id/grade')
-  grade(@Param('id') id: string, @Body() dto: GradeSubmissionDto) {
-    return this.assignmentsService.grade(id, dto)
+  grade(@Param('id') id: string, @Body() dto: GradeSubmissionDto, @CurrentUser() user: AuthUser) {
+    return this.assignmentsService.grade(id, dto, user)
   }
 }

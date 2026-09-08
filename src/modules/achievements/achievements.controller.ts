@@ -4,6 +4,7 @@ import { AchievementsService } from './achievements.service'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { Role } from '../../common/enums/role.enum'
+import type { AuthUser } from '../../common/authz/school-access'
 
 @ApiTags('achievements')
 @ApiBearerAuth()
@@ -13,13 +14,13 @@ export class AchievementsController {
 
   @Roles(Role.STUDENT)
   @Get('students/me/achievements')
-  myAchievements(@CurrentUser() user: { id: string }) {
+  myAchievements(@CurrentUser() user: AuthUser) {
     return this.achievementsService.myAchievements(user.id)
   }
 
   @Roles(Role.STUDENT, Role.TEACHER)
   @Get('classes/:classId/leaderboard')
-  leaderboard(@Param('classId') classId: string) {
-    return this.achievementsService.leaderboard(classId)
+  leaderboard(@Param('classId') classId: string, @CurrentUser() user: AuthUser) {
+    return this.achievementsService.leaderboard(classId, user)
   }
 }
