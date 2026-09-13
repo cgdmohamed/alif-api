@@ -34,11 +34,25 @@ async function bootstrap() {
   )
   app.useGlobalFilters(new HttpExceptionFilter())
 
-  // In production, CORS_ORIGIN must be set explicitly to a comma-separated
-  // allowlist — reflecting any origin (the old `?? true` default) would let
-  // any website make authenticated, credentialed requests against this API.
+  // Known production frontends, always allowed regardless of CORS_ORIGIN —
+  // a missing/misconfigured env var on the hosting platform has silently
+  // locked out real logins before. CORS_ORIGIN can still add more origins
+  // (e.g. a staging domain) on top of this baseline.
+  const KNOWN_PRODUCTION_ORIGINS = ['https://portal.aliffuture.com']
+
   const isProduction = process.env.NODE_ENV === 'production'
-  const corsOrigin = process.env.CORS_ORIGIN?.split(',') ?? (isProduction ? false : true)
+  const configuredOrigins =
+    process.env.CORS_ORIGIN?.split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean) ?? []
+  // Reflecting any origin in production (the old `?? true` fallback) would
+  // let any website make authenticated, credentialed requests against this
+  // API — only the known + explicitly configured origins are allowed there.
+  const corsOrigin = isProduction
+    ? [...new Set([...KNOWN_PRODUCTION_ORIGINS, ...configuredOrigins])]
+    : configuredOrigins.length > 0
+      ? configuredOrigins
+      : true
   app.enableCors({
     origin: corsOrigin,
     credentials: true,
